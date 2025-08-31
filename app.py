@@ -2,6 +2,13 @@ import os
 from flask import Flask, render_template, request, jsonify
 from database import get_user, update_user, get_user_stats, init_db
 from config import Config
+from rq import Queue
+from worker import conn
+from utils import count_words_at_url
+
+result = q.enqueue(count_words_at_url, 'http://heroku.com')
+
+q = Queue(connection=conn)
 
 app = Flask(__name__)
 app.config.from_object(Config)
