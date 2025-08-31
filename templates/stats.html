@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1>Статистика новостей</h1>
+<div style="width: 800px; height: 400px;">
+    <canvas id="statsChart"></canvas>
+</div>
+
+<script>
+fetch('/api/stats/{{ user_id }}')
+    .then(response => response.json())
+    .then(data => {
+        const ctx = document.getElementById('statsChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.map(item => item.date),
+                datasets: [{
+                    label: 'Количество новостей',
+                    data: data.map(item => item.total),
+                    backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}
