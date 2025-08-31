@@ -1,12 +1,10 @@
 import logging
 import sqlite3
 from telegram import Update
-from telegram.ext import Application, CommandHandler, CallbackContext, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes
 import feedparser
 import apscheduler.schedulers.background
 from apscheduler.triggers.interval import IntervalTrigger
-from datetime import datetime
-import pytz
 from config import Config
 
 # Настройка логирования
@@ -102,12 +100,10 @@ def parse_rss(feed_url, keywords, priority_keywords, blacklist):
 # ========== ЗАПЛАНИРОВАННАЯ ПРОВЕРКА ==========
 async def scheduled_news_check(context: ContextTypes.DEFAULT_TYPE):
     logger.info("Запуск плановой проверки новостей")
-    conn = sqlite3.connect('news_bot.db')
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM users")
-    users = cursor.fetchall()
-    conn.close()
-
+    with sqlite3.connect('news_bot.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT user_id FROM users")
+        users = cursor.fetchall()
     for (user_id,) in users:
         user = get_user(user_id)
         if not user:
@@ -133,14 +129,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user = get_user(user_id)
     if not user:
-        conn = sqlite3.connect('news_bot.db')
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO users (user_id, sources, keywords, priority_keywords, blacklist, language, country, interval) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (user_id, "", "", "", "", "ru", "ru", 3600)
-        )
-        conn.commit()
-        conn.close()
+        with sqlite3.connect('news_bot.db') as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO users (user_id, sources, keywords, priority_keywords, blacklist, language, country, interval) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (user_id, "", "", "", "", "ru", "ru", 3600)
+            )
+            conn.commit()
     await update.message.reply_text(
         "Привет! Я бот для отбора новостей. Используй команды:\n"
         "/add_source <RSS-ссылка> - добавить источник\n"

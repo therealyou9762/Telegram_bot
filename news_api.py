@@ -27,9 +27,8 @@ def fetch_news_from_api(keywords, language='ru', country='ru', sources=None):
         data = response.json()
         if data.get('status') == 'ok':
             return data.get('articles', [])
-        else:
-            print(f"NewsAPI error: {data.get('message')}")
-            return []
+        print(f"NewsAPI error: {data.get('message')}")
+        return []
 
     except requests.exceptions.RequestException as e:
         print(f"Request error: {e}")

@@ -8,13 +8,10 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 import asyncio
 
-# Настройка логирования
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Глобальные переменные
 scheduler = BackgroundScheduler()
-application = None
 
 
 async def check_news_for_user(user_id, application):
@@ -145,7 +142,6 @@ def setup_scheduler(application):
 
 def main():
     """Основная функция"""
-    global application
 
     # Инициализация БД
     init_db()

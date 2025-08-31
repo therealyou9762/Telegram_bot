@@ -12,7 +12,7 @@ def index():
 
 @app.route('/sources', methods=['GET', 'POST'])
 def manage_sources():
-    user_id = 1
+    user_id = 1  # TODO: Заменить на управление пользователями на основе сессий
     if request.method == 'POST':
         new_source = request.form['source_url']
         try:
@@ -43,7 +43,7 @@ def manage_sources():
     return render_template('sources.html', sources=sources_list)
 
 
-# Аналогично создай endpoints для управления ключевыми словами, черным списком и т.д.
+# TODO: Добавить endpoints для управления ключевыми словами, черным списком и т.д.
 
 if __name__ == '__main__':
     app.run(debug=True)
