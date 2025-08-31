@@ -12,7 +12,7 @@ def index():
 
 @app.route('/sources', methods=['GET', 'POST'])
 def manage_sources():
-    user_id = 1  # TODO: Replace with session-based user management
+    user_id = 1
     if request.method == 'POST':
         new_source = request.form['source_url']
         try:
