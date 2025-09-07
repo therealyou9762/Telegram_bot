@@ -1,15 +1,53 @@
-import redis
-import json
 import os
+import requests
+import redis
+import hashlib
+import json
 
-redis_client = redis.from_url(os.getenv('REDIS_URL'))
+WEBZ_API_KEY = os.getenv("WEBZ_API_KEY")
+REDIS_URL = os.getenv("REDIS_URL")
 
-def fetch_news_from_api(keywords, language='ru', country='ru', sources=None):
-    cache_key = f"news:{keywords}:{language}:{country}"
-    cached = redis_client.get(cache_key)
+redis_client = redis.Redis.from_url(REDIS_URL) if REDIS_URL else None
+
+def get_cached_news(query, cache_time=600):
+    if not redis_client:
+        return None
+    key = f"news:{hashlib.sha256(query.encode()).hexdigest()}"
+    cached = redis_client.get(key)
     if cached:
         return json.loads(cached)
-    # ... rest is the same as above (Webz.io call) ...
-    articles = ... # result of API call
-    redis_client.setex(cache_key, 900, json.dumps(articles))  # cache for 15 min
-    return articles
+    return None
+
+def set_cached_news(query, news, cache_time=600):
+    if not redis_client:
+        return
+    key = f"news:{hashlib.sha256(query.encode()).hexdigest()}"
+    redis_client.setex(key, cache_time, json.dumps(news))
+
+def fetch_news(query: str, language: str = "en", page: int = 1):
+    if not WEBZ_API_KEY:
+        raise ValueError("WEBZ_API_KEY not set in environment")
+
+    cached = get_cached_news(query)
+    if cached:
+        return cached
+
+    url = "https://api.webz.io/newsApiLite"
+    params = {
+        "token": WEBZ_API_KEY,
+        "q": query,
+        "language": language,
+        "size": 10,
+        "from": page,
+    }
+    try:
+        resp = requests.get(url, params=params, timeout=10)
+        resp.raise_for_status()
+        data = resp.json()
+        news = data.get("articles", [])
+        set_cached_news(query, news)
+        return news
+    except Exception as e:
+        # log the error (implement your logging here)
+        print(f"Error fetching news: {e}")
+        return []
