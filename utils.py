@@ -1,5 +1,6 @@
-import requests
+import re
 
-def count_words_at_url(url):
-    resp = requests.get(url)
-    return len(resp.text.split())
+def enforce_https(url: str) -> str:
+    if not url:
+        return url
+    return re.sub(r'^http://', 'https://', url, flags=re.IGNORECASE)
