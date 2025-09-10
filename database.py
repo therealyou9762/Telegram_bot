@@ -1,96 +1,77 @@
+import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from config import Config
-
 
 def get_db_connection():
-    return psycopg2.connect(Config.DATABASE_URL, sslmode='require')
+    return psycopg2.connect(os.environ['DATABASE_URL'], cursor_factory=RealDictCursor)
 
-
-def init_db():
+# --- Категории ---
+def add_category(name):
     with get_db_connection() as conn:
-        with conn.cursor() as cursor:
-            # Таблица пользователей
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    user_id BIGINT PRIMARY KEY,
-                    username VARCHAR(100),
-                    sources TEXT[] DEFAULT '{}',
-                    keywords TEXT[] DEFAULT '{}',
-                    priority_keywords TEXT[] DEFAULT '{}',
-                    blacklist TEXT[] DEFAULT '{}',
-                    language VARCHAR(10) DEFAULT 'ru',
-                    country VARCHAR(10) DEFAULT 'ru',
-                    check_interval INTEGER DEFAULT 3600,
-                    last_checked TIMESTAMP DEFAULT NOW()
-                )
-            ''')
+        with conn.cursor() as cur:
+            cur.execute("INSERT INTO categories (name) VALUES (%s) ON CONFLICT (name) DO NOTHING RETURNING id", (name,))
+            result = cur.fetchone()
+            return result['id'] if result else None
 
-            # Таблица статистики
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS stats (
-                    id SERIAL PRIMARY KEY,
-                    user_id BIGINT REFERENCES users(user_id),
-                    date DATE DEFAULT CURRENT_DATE,
-                    keyword TEXT,
-                    count INTEGER DEFAULT 0,
-                    UNIQUE(user_id, date, keyword)
-                )
-            ''')
-
-            conn.commit()
-
-
-def get_user(user_id):
+def get_categories():
     with get_db_connection() as conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute("SELECT * FROM users WHERE user_id = %s", (user_id,))
-            user = cursor.fetchone()
-    return user
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM categories")
+            return cur.fetchall()
 
-
-def update_user(user_id, field, value):
+# --- Ключевые слова ---
+def add_keyword(word, category_name):
     with get_db_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(f"UPDATE users SET {field} = %s WHERE user_id = %s", (value, user_id))
-            conn.commit()
+        with conn.cursor() as cur:
+            # Найти или создать категорию
+            cur.execute("SELECT id FROM categories WHERE name=%s", (category_name,))
+            cat = cur.fetchone()
+            if not cat:
+                cur.execute("INSERT INTO categories (name) VALUES (%s) RETURNING id", (category_name,))
+                cat = cur.fetchone()
+            cat_id = cat['id']
+            cur.execute("INSERT INTO keywords (word, category_id) VALUES (%s, %s) RETURNING id", (word, cat_id))
+            return cur.fetchone()['id']
 
-
-def add_to_array(user_id, field, value):
+def get_keywords():
     with get_db_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(f"UPDATE users SET {field} = array_append({field}, %s) WHERE user_id = %s", (value, user_id))
-            conn.commit()
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT k.word, c.name AS category 
+                FROM keywords k LEFT JOIN categories c ON k.category_id = c.id
+            """)
+            return cur.fetchall()
 
-
-def remove_from_array(user_id, field, value):
+# --- Новости ---
+def add_news(title, url, summary, category_name, published_at):
     with get_db_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(f"UPDATE users SET {field} = array_remove({field}, %s) WHERE user_id = %s", (value, user_id))
-            conn.commit()
+        with conn.cursor() as cur:
+            # Найти или создать категорию
+            cur.execute("SELECT id FROM categories WHERE name=%s", (category_name,))
+            cat = cur.fetchone()
+            if not cat:
+                cur.execute("INSERT INTO categories (name) VALUES (%s) RETURNING id", (category_name,))
+                cat = cur.fetchone()
+            cat_id = cat['id']
+            cur.execute("""
+                INSERT INTO news (title, url, summary, category_id, published_at) 
+                VALUES (%s, %s, %s, %s, %s)
+            """, (title, url, summary, cat_id, published_at))
 
-
-def update_stats(user_id, keyword, count=1):
+def get_news(category_name=None):
     with get_db_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute('''
-                INSERT INTO stats (user_id, date, keyword, count)
-                VALUES (%s, CURRENT_DATE, %s, %s)
-                ON CONFLICT (user_id, date, keyword) 
-                DO UPDATE SET count = stats.count + EXCLUDED.count
-            ''', (user_id, keyword, count))
-            conn.commit()
-
-
-def get_user_stats(user_id, days=7):
-    with get_db_connection() as conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute('''
-                SELECT date, keyword, SUM(count) as total
-                FROM stats 
-                WHERE user_id = %s AND date >= CURRENT_DATE - INTERVAL %s
-                GROUP BY date, keyword
-                ORDER BY date DESC
-            ''', (user_id, f'{days} days'))
-            stats = cursor.fetchall()
-    return stats
+        with conn.cursor() as cur:
+            if category_name:
+                cur.execute("""
+                    SELECT n.title, n.url, n.summary, n.published_at, c.name AS category
+                    FROM news n LEFT JOIN categories c ON n.category_id = c.id
+                    WHERE c.name = %s
+                    ORDER BY n.published_at DESC
+                """, (category_name,))
+            else:
+                cur.execute("""
+                    SELECT n.title, n.url, n.summary, n.published_at, c.name AS category
+                    FROM news n LEFT JOIN categories c ON n.category_id = c.id
+                    ORDER BY n.published_at DESC
+                """)
+            return cur.fetchall()
