@@ -81,6 +81,7 @@ def main():
     app.add_handler(CommandHandler("add_category", add_category_cmd))
     app.add_handler(CommandHandler("list_categories", list_categories_cmd))
     app.add_handler(CommandHandler("get_news", get_news_cmd))
+    app.add_handler(CommandHandler("site", site_cmd))
     app.run_polling()
 
 async def site_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -89,12 +90,6 @@ async def site_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"Перейти на сайт управления новостями: {url}"
     )
-
-def main():
-    app = Application.builder().token(TOKEN).build()
-    # ... другие хендлеры ...
-    app.add_handler(CommandHandler("site", site_cmd))
-    app.run_polling()
 
 if __name__ == "__main__":
     main()
