@@ -55,7 +55,12 @@ async def get_news_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Новостей не найдено.")
         return
     for news in news_list:
-        add_news(news['title'], news['url'], news['summary'], news.get('category', 'Без категории'), news['published_at'])
+        add_news(
+            news['title'],
+            news['url'],
+            news.get('description', ''),  # <-- Исправлено!
+            news.get('category', 'Без категории'),
+            news['published_at']
         msg = f"📰 <b>{news['title']}</b>\n{news['summary']}\n<a href='{news['url']}'>Читать полностью</a>"
         await update.message.reply_html(msg)
 
