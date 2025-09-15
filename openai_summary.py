@@ -83,5 +83,18 @@ def main():
     app.add_handler(CommandHandler("get_news", get_news_cmd))
     app.run_polling()
 
+async def site_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    url = f"https://your-site.com/?user_id={user_id}"  # Укажи актуальный URL сайта!
+    await update.message.reply_text(
+        f"Перейти на сайт управления новостями: {url}"
+    )
+
+def main():
+    app = Application.builder().token(TOKEN).build()
+    # ... другие хендлеры ...
+    app.add_handler(CommandHandler("site", site_cmd))
+    app.run_polling()
+
 if __name__ == "__main__":
     main()
