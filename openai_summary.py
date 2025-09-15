@@ -45,23 +45,32 @@ async def list_categories_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE
     await update.message.reply_text("Категории:\n" + msg)
 
 async def get_news_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keywords = get_keywords()
-    if not keywords:
-        await update.message.reply_text("Ключевые слова не заданы.")
-        return
-    kw_list = [kw['word'] for kw in keywords]
-    news_list = search_news(kw_list)
-    if not news_list:
-        await update.message.reply_text("Новостей не найдено.")
-        return
-    for news in news_list:
-        add_news(
-            news['title'],
-            news['url'],
-            news.get('description', ''),  # <-- Исправлено!
-            news.get('category', 'Без категории'),
-            news['published_at']
-        msg = f"📰 <b>{news['title']}</b>\n{news['summary']}\n<a href='{news['url']}'>Читать полностью</a>"
+    try:
+        # допустим, обработка ключевых слов:
+        kw_list = context.args if context.args else ["Россия"]
+        news_list = search_news(kw_list)
+
+        for news in news_list:
+            add_news(
+                news['title'],
+                news['url'],
+                news.get('description', ''),  # исправлено с 'summary' на 'description'
+                news.get('category', 'Без категории'),
+                news['published_at']
+            )
+            # Отправляем сообщение пользователю (пример)
+            message = (
+                f"<b>{news['title']}</b>\n"
+                f"{news.get('description', '')}\n"
+                f"<a href=\"{news['url']}\">Читать подробнее</a>\n"
+                f"Категория: {news.get('category', 'Без категории')}\n"
+                f"Дата: {news['published_at']}\n"
+            )
+            await update.message.reply_text(message, parse_mode='HTML')
+
+    except Exception as e:
+        logging.exception("Ошибка в get_news_cmd")
+        await update.message.reply_text(f"Ошибка при получении новостей: {e}")
         await update.message.reply_html(msg)
 
 def main():
