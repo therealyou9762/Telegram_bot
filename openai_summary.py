@@ -2,7 +2,7 @@ import os
 from telegram.ext import Application, CommandHandler, ContextTypes
 from telegram import Update
 from database import add_keyword, get_keywords, add_category, get_categories, add_news, get_news
-from webz_api import search_news
+from newsapi import search_news
 
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
