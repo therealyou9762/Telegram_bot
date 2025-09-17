@@ -1,6 +1,8 @@
 from telegram_bot_calendar import DetailedTelegramCalendar
 import datetime
 
+# ... (твой существующий импорт и setup)
+
 CALENDAR_START, CALENDAR_END, KEYWORDS = range(3)
 
 async def news_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -78,10 +80,10 @@ conv_handler = ConversationHandler(
             CallbackQueryHandler(period_chosen),
         ],
         CALENDAR_START: [
-            CallbackQueryHandler(calendar_start)
+            CallbackQueryHandler(calendar_start, per_message=True)
         ],
         CALENDAR_END: [
-            CallbackQueryHandler(calendar_end)
+            CallbackQueryHandler(calendar_end, per_message=True)
         ],
         KEYWORDS: [
             MessageHandler(filters.TEXT & (~filters.COMMAND), keywords_chosen)
