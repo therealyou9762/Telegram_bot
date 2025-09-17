@@ -17,11 +17,11 @@ except Exception as e:
 
 @app.route('/')
 def index():
-    try:
-        return render_template('index.html')
-    except Exception as e:
-        logger.error(e)
-        return "Ошибка рендеринга главной страницы", 500
+    user_id = request.args.get("user_id")
+    user = User.query.filter_by(user_id=user_id).first()
+    if not user:
+        return "User invalid"
+    # Дальше логика работы с пользователем...
 
 @app.route('/settings/<int:user_id>')
 def settings(user_id):
