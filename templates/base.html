@@ -2,19 +2,40 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>News Bot Settings</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>News Bot</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        nav {
+            background: #f6f6f6;
+            padding: 12px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 12px;
+        }
+        nav a {
+            text-decoration: none;
+            color: #333;
+            font-weight: bold;
+            padding: 8px 16px;
+            border-radius: 5px;
+            transition: background 0.2s;
+        }
+        nav a:hover {
+            background: #e0e0e0;
+        }
+        .tg-link {
+            color: #0088cc;
+            background: #e6f5fc;
+            border: 1px solid #b9eaff;
+        }
+    </style>
 </head>
 <body>
     <nav>
         <a href="{{ url_for('index') }}">Главная</a>
-        <a href="{{ url_for('settings', user_id=1) }}">Настройки</a>
-        <a href="{{ url_for('stats', user_id=1) }}">Статистика</a>
-        <!-- КНОПКА ОТКРЫТЬ БОТА -->
-        <a href="https://t.me/@military_news_23bot" target="_blank" style="margin-left: 16px; color: green; font-weight: bold;">
-      Открыть Telegram-бота</a>
-        </a>
+        <a href="{{ url_for('stats') }}">Статистика</a>
+        <a href="{{ url_for('settings') }}">Настройки</a>
+        <a href="https://t.me/@military_news_23bot" target="_blank" class="tg-link">Открыть Telegram-бота</a>
     </nav>
     <main>
         {% block content %}{% endblock %}
