@@ -86,9 +86,9 @@ def main():
 
 async def site_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    url = f"https://telegr77-6209977497ad.herokuapp.com/?user_id={user_id}"  # Укажи актуальный URL сайта!
+    url = f"https://telegr77-6209977497ad.herokuapp.com/?user_id={user_id}"  # твой реальный домен!
     await update.message.reply_text(
-        f"Перейти на сайт управления новостями: {url}"
+        f"Перейдите на сайт управления новостями: {url}"
     )
 
 if __name__ == "__main__":
