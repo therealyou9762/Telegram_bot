@@ -150,8 +150,12 @@ async def site_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # --- Автоматический сбор новостей каждый час ---
-def start_news_scheduler(application):
-    scheduler = AsyncIOScheduler()
+async def start_news_scheduler(application):
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+    import asyncio
+
+    scheduler = AsyncIOScheduler(event_loop=asyncio.get_running_loop())
+
     async def scheduled_news_job():
         kw_list = [kw['word'] for kw in get_keywords()]
         all_news = search_news(kw_list)
@@ -188,8 +192,8 @@ def main():
     app.add_handler(CommandHandler("list_categories", list_categories_cmd))
     app.add_handler(CommandHandler("news", news_cmd))
     app.add_handler(CommandHandler("site", site_cmd))
-    # Запуск планировщика после старта event loop!
-    app.post_init = lambda app: start_news_scheduler(app)
+    # асинхронный post_init!
+    app.post_init = start_news_scheduler
     logger.info("Starting bot polling...")
     app.run_polling()
 
