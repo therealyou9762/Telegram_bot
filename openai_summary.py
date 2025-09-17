@@ -89,7 +89,9 @@ async def site_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Для удобного управления новостями воспользуйтесь сайтом:",
         reply_markup=reply_markup
+    )
 
+        
 def main():
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
