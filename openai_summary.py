@@ -2,6 +2,9 @@ import os
 import logging
 from telegram.ext import Application, CommandHandler, ContextTypes
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import feedparser
+
 from database import add_keyword, get_keywords, add_category, get_categories, add_news, get_news
 from newsapi import search_news
 
@@ -11,6 +14,13 @@ logger = logging.getLogger(__name__)
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 if not TOKEN:
     logger.error("TELEGRAM_BOT_TOKEN не найден в переменных окружения!")
+
+NEWS_SOURCES = [
+    "https://www.ukrinform.ua/rss/rss.php",
+    "https://www.bbc.com/news/world/rss.xml",
+    "https://www.france24.com/en/rss",
+    # Добавь другие при необходимости
+]
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -81,13 +91,34 @@ async def list_categories_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def news_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        kw_list = context.args if context.args else ["Россия"]
-        news_list = search_news(kw_list)
-        if not news_list:
+        kw_list = context.args if context.args else [kw['word'] for kw in get_keywords()]
+        all_news = []
+
+        # 1. Получаем новости через API
+        api_news = search_news(kw_list)
+        all_news.extend(api_news)
+
+        # 2. Получаем новости из RSS-источников
+        for src in NEWS_SOURCES:
+            feed = feedparser.parse(src)
+            for entry in feed.entries:
+                for kw in kw_list:
+                    if kw.lower() in (entry.title + entry.get('summary', '')).lower():
+                        news_item = {
+                            "title": entry.title,
+                            "url": entry.link,
+                            "description": entry.get("summary", ""),
+                            "category": entry.get("category", "Без категории"),
+                            "published_at": entry.get("published", ""),
+                        }
+                        all_news.append(news_item)
+                        break
+
+        if not all_news:
             await update.message.reply_text("📰 Новости не найдены.")
             return
 
-        for news in news_list:
+        for news in all_news:
             add_news(
                 news['title'],
                 news['url'],
@@ -118,6 +149,38 @@ async def site_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
+# --- Автоматический сбор новостей каждый час ---
+def start_news_scheduler():
+    scheduler = AsyncIOScheduler()
+
+    async def scheduled_news_job():
+        kw_list = [kw['word'] for kw in get_keywords()]
+        all_news = search_news(kw_list)
+        for src in NEWS_SOURCES:
+            feed = feedparser.parse(src)
+            for entry in feed.entries:
+                for kw in kw_list:
+                    if kw.lower() in (entry.title + entry.get('summary', '')).lower():
+                        news_item = {
+                            "title": entry.title,
+                            "url": entry.link,
+                            "description": entry.get("summary", ""),
+                            "category": entry.get("category", "Без категории"),
+                            "published_at": entry.get("published", ""),
+                        }
+                        add_news(
+                            news_item['title'],
+                            news_item['url'],
+                            news_item.get('description', ''),
+                            news_item.get('category', 'Без категории'),
+                            news_item['published_at']
+                        )
+                        break
+
+    scheduler.add_job(scheduled_news_job, "interval", hours=1)
+    scheduler.start()
+    return scheduler
+
 def main():
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
@@ -127,6 +190,7 @@ def main():
     app.add_handler(CommandHandler("list_categories", list_categories_cmd))
     app.add_handler(CommandHandler("news", news_cmd))
     app.add_handler(CommandHandler("site", site_cmd))
+    start_news_scheduler()
     logger.info("Starting bot polling...")
     app.run_polling()
 
