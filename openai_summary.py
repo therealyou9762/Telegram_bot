@@ -152,8 +152,6 @@ async def site_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # --- Автоматический сбор новостей каждый час ---
 def start_news_scheduler(application):
     scheduler = AsyncIOScheduler()
-    application.scheduler = scheduler
-
     async def scheduled_news_job():
         kw_list = [kw['word'] for kw in get_keywords()]
         all_news = search_news(kw_list)
@@ -177,10 +175,9 @@ def start_news_scheduler(application):
                             news_item['published_at']
                         )
                         break
-
     scheduler.add_job(scheduled_news_job, "interval", hours=1)
     scheduler.start()
-    return scheduler
+    application.scheduler = scheduler
 
 def main():
     app = Application.builder().token(TOKEN).build()
