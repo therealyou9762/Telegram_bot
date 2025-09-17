@@ -1,10 +1,18 @@
 import os
+import logging
 from telegram.ext import Application, CommandHandler, ContextTypes
 from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from database import add_keyword, get_keywords, add_category, get_categories, add_news, get_news
 from newsapi import search_news
 
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+if not TOKEN:
+    logger.error("TELEGRAM_BOT_TOKEN не найден в переменных окружения!")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
@@ -46,19 +54,20 @@ async def list_categories_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def get_news_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        # допустим, обработка ключевых слов:
         kw_list = context.args if context.args else ["Россия"]
         news_list = search_news(kw_list)
+        if not news_list:
+            await update.message.reply_text("Новости не найдены.")
+            return
 
         for news in news_list:
             add_news(
                 news['title'],
                 news['url'],
-                news.get('description', ''),  # исправлено с 'summary' на 'description'
+                news.get('description', ''),
                 news.get('category', 'Без категории'),
                 news['published_at']
             )
-            # Отправляем сообщение пользователю (пример)
             message = (
                 f"<b>{news['title']}</b>\n"
                 f"{news.get('description', '')}\n"
@@ -69,16 +78,17 @@ async def get_news_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(message, parse_mode='HTML')
 
     except Exception as e:
-        logging.exception("Ошибка в get_news_cmd")
+        logger.exception("Ошибка в get_news_cmd")
         await update.message.reply_text(f"Ошибка при получении новостей: {e}")
-        await update.message.reply_html(msg)
 
 async def site_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    url = f"https://telegr77-6209977497ad.herokuapp.com/?user_id={user_id}"  # твой реальный домен!
+    url = f"https://telegr77-6209977497ad.herokuapp.com/?user_id={user_id}"
+    keyboard = [[InlineKeyboardButton("Перейти на сайт", url=url)]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        f"Перейдите на сайт управления новостями: {url}"
-    )
+        "Для удобного управления новостями воспользуйтесь сайтом:",
+        reply_markup=reply_markup
 
 def main():
     app = Application.builder().token(TOKEN).build()
@@ -89,9 +99,8 @@ def main():
     app.add_handler(CommandHandler("list_categories", list_categories_cmd))
     app.add_handler(CommandHandler("get_news", get_news_cmd))
     app.add_handler(CommandHandler("site", site_cmd))
+    logger.info("Starting bot polling...")
     app.run_polling()
-
-
 
 if __name__ == "__main__":
     main()
