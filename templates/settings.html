@@ -1,6 +1,37 @@
 {% extends "base.html" %}
-
+{% block title %}Настройки{% endblock %}
 {% block content %}
-<h1>Настройки</h1>
-<p>Здесь будут настройки вашего Telegram-бота и сайта.</p>
+<h2>Настройки пользователя</h2>
+{% if user %}
+    <ul>
+        <li>ID: {{ user['id'] }}</li>
+        <li>Имя: {{ user['name'] }}</li>
+        <li>Email: {{ user['email'] }}</li>
+        <!-- Добавьте другие настройки по необходимости -->
+    </ul>
+    <!-- Форма изменения настроек -->
+    <form id="update-setting-form">
+        <label for="field">Поле:</label>
+        <input type="text" id="field" name="field">
+        <label for="value">Значение:</label>
+        <input type="text" id="value" name="value">
+        <button type="submit">Сохранить</button>
+    </form>
+    <script>
+    document.getElementById('update-setting-form').onsubmit = async function(e) {
+        e.preventDefault();
+        const field = e.target.field.value;
+        const value = e.target.value.value;
+        const response = await fetch("/api/update_setting/{{ user_id }}", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({field, value})
+        });
+        const data = await response.json();
+        alert(data.status === 'success' ? 'Настройки обновлены!' : 'Ошибка: ' + data.message);
+    }
+    </script>
+{% else %}
+    <p>Пользователь не найден.</p>
+{% endif %}
 {% endblock %}
