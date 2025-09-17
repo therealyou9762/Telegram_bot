@@ -2,43 +2,25 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>News Bot</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Telegram Bot Dashboard{% endblock %}</title>
     <style>
         nav {
-            background: #f6f6f6;
-            padding: 12px;
             margin-bottom: 20px;
-            display: flex;
-            gap: 12px;
         }
-        nav a {
-            text-decoration: none;
-            color: #333;
-            font-weight: bold;
-            padding: 8px 16px;
-            border-radius: 5px;
-            transition: background 0.2s;
-        }
-        nav a:hover {
-            background: #e0e0e0;
-        }
-        .tg-link {
-            color: #0088cc;
-            background: #e6f5fc;
-            border: 1px solid #b9eaff;
-        }
+        .tg-link { margin-left: 10px; }
     </style>
 </head>
 <body>
-    <nav>
-        <a href="{{ url_for('index') }}">Главная</a>
-        <a href="{{ url_for('stats') }}">Статистика</a>
-        <a href="{{ url_for('settings') }}">Настройки</a>
-        <a href="https://t.me/YourBotName" target="_blank" class="tg-link">Открыть Telegram-бота</a>
-    </nav>
-    <main>
-        {% block content %}{% endblock %}
-    </main>
+<nav>
+    <a href="{{ url_for('index') }}">Главная</a>
+    {% if user_id %}
+        <a href="{{ url_for('stats', user_id=user_id) }}">Статистика</a>
+        <a href="{{ url_for('settings', user_id=user_id) }}">Настройки</a>
+    {% endif %}
+    <a href="https://t.me/YourBotName" target="_blank" class="tg-link">Открыть Telegram-бота</a>
+</nav>
+<div class="container">
+    {% block content %}{% endblock %}
+</div>
 </body>
 </html>
