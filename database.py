@@ -5,6 +5,35 @@ from psycopg2.extras import RealDictCursor
 def get_db_connection():
     return psycopg2.connect(os.environ['DATABASE_URL'], cursor_factory=RealDictCursor)
 
+def add_news_stat(user_id, keyword, source, found_count, date):
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO news_stats (user_id, keyword, source, found_count, date)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (user_id, keyword, source, found_count, date))
+
+def get_news_stats(user_id=None, days=7):
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            if user_id:
+                cur.execute("""
+                    SELECT keyword, source, SUM(found_count) AS total, date
+                    FROM news_stats
+                    WHERE user_id = %s AND date > (now() - interval '%s days')
+                    GROUP BY keyword, source, date
+                    ORDER BY date DESC
+                """, (user_id, days))
+            else:
+                cur.execute("""
+                    SELECT keyword, source, SUM(found_count) AS total, date
+                    FROM news_stats
+                    WHERE date > (now() - interval '%s days')
+                    GROUP BY keyword, source, date
+                    ORDER BY date DESC
+                """, (days,))
+            return cur.fetchall()
+
 # --- Категории ---
 def add_category(name):
     with get_db_connection() as conn:
