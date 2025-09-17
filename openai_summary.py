@@ -73,6 +73,13 @@ async def get_news_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Ошибка при получении новостей: {e}")
         await update.message.reply_html(msg)
 
+async def site_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    url = f"https://telegr77-6209977497ad.herokuapp.com/?user_id={user_id}"  # твой реальный домен!
+    await update.message.reply_text(
+        f"Перейдите на сайт управления новостями: {url}"
+    )
+
 def main():
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
@@ -84,12 +91,7 @@ def main():
     app.add_handler(CommandHandler("site", site_cmd))
     app.run_polling()
 
-async def site_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    url = f"https://telegr77-6209977497ad.herokuapp.com/?user_id={user_id}"  # твой реальный домен!
-    await update.message.reply_text(
-        f"Перейдите на сайт управления новостями: {url}"
-    )
+
 
 if __name__ == "__main__":
     main()
