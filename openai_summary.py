@@ -1,7 +1,13 @@
 import os
 import logging
-from telegram.ext import Application, CommandHandler, ContextTypes
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+import datetime
+from telegram import (
+    Update, InlineKeyboardButton, InlineKeyboardMarkup
+)
+from telegram.ext import (
+    Application, CommandHandler, ContextTypes, ConversationHandler,
+    CallbackQueryHandler, MessageHandler, filters
+)
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import feedparser
 
@@ -22,6 +28,9 @@ NEWS_SOURCES = [
     # Добавь другие при необходимости
 ]
 
+PERIOD, KEYWORDS = range(2)
+
+# --- Команды ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     url = f"https://telegr77-6209977497ad.herokuapp.com/?user_id={user_id}"
@@ -89,56 +98,6 @@ async def list_categories_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE
         parse_mode='HTML'
     )
 
-async def news_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        kw_list = context.args if context.args else [kw['word'] for kw in get_keywords()]
-        all_news = []
-
-        # 1. Получаем новости через API
-        api_news = search_news(kw_list)
-        all_news.extend(api_news)
-
-        # 2. Получаем новости из RSS-источников
-        for src in NEWS_SOURCES:
-            feed = feedparser.parse(src)
-            for entry in feed.entries:
-                for kw in kw_list:
-                    if kw.lower() in (entry.title + entry.get('summary', '')).lower():
-                        news_item = {
-                            "title": entry.title,
-                            "url": entry.link,
-                            "description": entry.get("summary", ""),
-                            "category": entry.get("category", "Без категории"),
-                            "published_at": entry.get("published", ""),
-                        }
-                        all_news.append(news_item)
-                        break
-
-        if not all_news:
-            await update.message.reply_text("📰 Новости не найдены.")
-            return
-
-        for news in all_news:
-            add_news(
-                news['title'],
-                news['url'],
-                news.get('description', ''),
-                news.get('category', 'Без категории'),
-                news['published_at']
-            )
-            message = (
-                f"<b>{news['title']}</b>\n"
-                f"{news.get('description', '')}\n"
-                f"<a href=\"{news['url']}\">Читать подробнее</a>\n"
-                f"Категория: {news.get('category', 'Без категории')}\n"
-                f"Дата: {news['published_at']}\n"
-            )
-            await update.message.reply_text(message, parse_mode='HTML')
-
-    except Exception as e:
-        logger.exception("Ошибка в news_cmd")
-        await update.message.reply_text(f"Ошибка при получении новостей: {e}")
-
 async def site_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     url = f"https://telegr77-6209977497ad.herokuapp.com/?user_id={user_id}"
@@ -148,6 +107,109 @@ async def site_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🌐 Для удобного управления новостями воспользуйтесь сайтом:",
         reply_markup=reply_markup
     )
+
+# --- Диалог поиска новостей ---
+async def news_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [InlineKeyboardButton("Сегодня", callback_data="today")],
+        [InlineKeyboardButton("Последние 3 дня", callback_data="3days")],
+        [InlineKeyboardButton("Неделя", callback_data="week")],
+        [InlineKeyboardButton("Указать диапазон", callback_data="custom")],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Выберите период для поиска новостей:", reply_markup=reply_markup)
+    return PERIOD
+
+async def period_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    context.user_data['period'] = query.data
+
+    if query.data == "custom":
+        await query.edit_message_text("Введите диапазон дат в формате ГГГГ-ММ-ДД - ГГГГ-ММ-ДД (например, 2025-09-10 - 2025-09-17):")
+        return PERIOD
+    else:
+        await query.edit_message_text("Введите ключевые слова для поиска (через запятую):")
+        return KEYWORDS
+
+async def custom_period(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    try:
+        start_str, end_str = map(str.strip, text.split('-'))
+        start_date = datetime.datetime.strptime(start_str, "%Y-%m-%d").date()
+        end_date = datetime.datetime.strptime(end_str, "%Y-%m-%d").date()
+        context.user_data['custom_range'] = (start_date, end_date)
+        await update.message.reply_text("Введите ключевые слова для поиска (через запятую):")
+        return KEYWORDS
+    except Exception:
+        await update.message.reply_text("Ошибка! Введите диапазон дат корректно (например, 2025-09-10 - 2025-09-17):")
+        return PERIOD
+
+async def keywords_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    keywords = [kw.strip() for kw in text.split(',') if kw.strip()]
+    context.user_data['keywords'] = keywords
+
+    period = context.user_data.get('period')
+    custom_range = context.user_data.get('custom_range')
+
+    start_date, end_date = get_period_dates(period, custom_range)
+    news_items = filter_news(start_date, end_date, keywords)
+
+    if not news_items:
+        await update.message.reply_text("📰 Новости не найдены по этим параметрам.")
+        return ConversationHandler.END
+
+    for item in news_items[:10]:  # выводим максимум 10 новостей
+        msg = (
+            f"<b>{item['title']}</b>\n{item.get('description','')}\n"
+            f"<a href=\"{item['url']}\">Читать подробнее</a>\n"
+            f"Категория: {item.get('category', 'Без категории')}\n"
+            f"Дата: {item.get('published_at','')}\n"
+        )
+        await update.message.reply_text(msg, parse_mode="HTML")
+    return ConversationHandler.END
+
+def get_period_dates(period, custom_range=None):
+    today = datetime.datetime.utcnow().date()
+    if period == "today":
+        return today, today
+    elif period == "3days":
+        return today - datetime.timedelta(days=2), today
+    elif period == "week":
+        return today - datetime.timedelta(days=6), today
+    elif period == "custom" and custom_range:
+        return custom_range
+    else:
+        return today, today
+
+def filter_news(start_date, end_date, keywords):
+    # Здесь берем все новости из БД (или любого источника)
+    result = []
+    for news in get_news():  # get_news должен возвращать список словарей новостей
+        try:
+            pub_dt = news.get('published_at', '')
+            if isinstance(pub_dt, str):
+                pub_dt = datetime.datetime.strptime(pub_dt[:10], "%Y-%m-%d").date()
+            if start_date <= pub_dt <= end_date and any(kw.lower() in (news.get('title','')+news.get('description','')).lower() for kw in keywords):
+                result.append(news)
+        except Exception:
+            continue
+    return result
+
+conv_handler = ConversationHandler(
+    entry_points=[CommandHandler("news", news_cmd)],
+    states={
+        PERIOD: [
+            CallbackQueryHandler(period_chosen),
+            MessageHandler(filters.TEXT & (~filters.COMMAND), custom_period)
+        ],
+        KEYWORDS: [
+            MessageHandler(filters.TEXT & (~filters.COMMAND), keywords_chosen)
+        ],
+    },
+    fallbacks=[],
+)
 
 # --- Автоматический сбор новостей каждый час ---
 async def scheduled_news_job(context):
@@ -175,7 +237,6 @@ async def scheduled_news_job(context):
                     break
 
 async def start_news_scheduler(application):
-    # Запланировать задачу раз в час через job_queue (асинхронно)
     application.job_queue.run_repeating(scheduled_news_job, interval=3600, first=0)
 
 def main():
@@ -185,9 +246,8 @@ def main():
     app.add_handler(CommandHandler("list_keywords", list_keywords_cmd))
     app.add_handler(CommandHandler("add_category", add_category_cmd))
     app.add_handler(CommandHandler("list_categories", list_categories_cmd))
-    app.add_handler(CommandHandler("news", news_cmd))
     app.add_handler(CommandHandler("site", site_cmd))
-    # асинхронный post_init!
+    app.add_handler(conv_handler)
     app.post_init = start_news_scheduler
     logger.info("Starting bot polling...")
     app.run_polling()
