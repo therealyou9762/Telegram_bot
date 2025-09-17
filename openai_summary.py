@@ -13,8 +13,8 @@ if not TOKEN:
     logger.error("TELEGRAM_BOT_TOKEN не найден в переменных окружения!")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    username = update.effective_user.username
-    url = f"https://telegr77-6209977497ad.herokuapp.com/?username={username}"
+    user_id = update.effective_user.id
+    url = f"https://telegr77-6209977497ad.herokuapp.com/?user_id={user_id}"
     keyboard = [[InlineKeyboardButton("🌐 Перейти на сайт", url=url)]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
