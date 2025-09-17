@@ -18,6 +18,10 @@ except Exception as e:
 @app.route('/')
 def index():
     user_id = request.args.get("user_id")
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        return "User invalid"
     user = User.query.filter_by(user_id=user_id).first()
     if not user:
         return "User invalid"
