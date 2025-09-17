@@ -3,8 +3,7 @@ import logging
 import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
-    Application, CommandHandler, ContextTypes, ConversationHandler,
-   , MessageHandler, filters
+    Application, CommandHandler, ContextTypes, ConversationHandler, MessageHandler, filters
 )
 from telegram_bot_calendar import DetailedTelegramCalendar
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
