@@ -14,8 +14,6 @@ if not TOKEN:
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     username = update.effective_user.username
-    if not username:
-        username = f"id{update.effective_user.id}"
     url = f"https://telegr77-6209977497ad.herokuapp.com/?username={username}"
     keyboard = [[InlineKeyboardButton("🌐 Перейти на сайт", url=url)]]
     reply_markup = InlineKeyboardMarkup(keyboard)
