@@ -15,6 +15,11 @@ try:
 except Exception as e:
     logger.error(f"Ошибка инициализации базы данных: {e}")
 
+@app.route('/api/news_stats/<int:user_id>')
+def api_news_stats(user_id):
+    stats = get_news_stats(user_id)
+    return jsonify([dict(row) for row in stats])
+
 @app.route('/')
 def index():
     user_id = request.args.get("user_id")
