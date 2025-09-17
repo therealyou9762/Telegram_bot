@@ -3,7 +3,7 @@ import logging
 import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
-    Application, CommandHandler, ContextTypes, ConversationHandler, MessageHandler, filters
+    Application, CommandHandler, ContextTypes, ConversationHandler, CallbackQueryHandler, MessageHandler, filters
 )
 from telegram_bot_calendar import DetailedTelegramCalendar
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -41,7 +41,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📋 <b>/list_keywords</b> — список ваших ключевых слов\n"
         "📂 <b>/add_category</b> категория — добавить новую категорию\n"
         "🗂️ <b>/list_categories</b> — список ваших категорий\n"
-        "📰 <b>/news</b> слово — показать новости по ключевым словам\n"
+        "📰 <b>/news</b> — показать новости по ключевым словам\n"
         "🌐 <b>/site</b> — открыть сайт управления новостями\n\n"
         "Для удобного управления новостями воспользуйтесь кнопкой ниже.",
         reply_markup=reply_markup,
@@ -106,7 +106,7 @@ async def site_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-# --- Диалог поиска новостей только через календарь ---
+# --- Диалог поиска новостей через календарь ---
 async def news_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("Сегодня", callback_data="today")],
@@ -161,14 +161,16 @@ async def keywords_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     start_date = context.user_data.get('start_date')
     end_date = context.user_data.get('end_date')
 
+    today = datetime.datetime.utcnow().date()
     if period == "today":
-        start_date = end_date = datetime.datetime.utcnow().date()
+        start_date = end_date = today
     elif period == "3days":
-        end_date = datetime.datetime.utcnow().date()
+        end_date = today
         start_date = end_date - datetime.timedelta(days=2)
     elif period == "week":
-        end_date = datetime.datetime.utcnow().date()
+        end_date = today
         start_date = end_date - datetime.timedelta(days=6)
+    # Для календаря start_date, end_date уже заданы
 
     news_items = filter_news(start_date, end_date, keywords)
 
@@ -199,7 +201,16 @@ def filter_news(start_date, end_date, keywords):
             continue
     return result
 
-
+conv_handler = ConversationHandler(
+    entry_points=[CommandHandler("news", news_cmd)],
+    states={
+        PERIOD: [CallbackQueryHandler(period_chosen)],
+        CALENDAR_START: [CallbackQueryHandler(calendar_start)],
+        CALENDAR_END: [CallbackQueryHandler(calendar_end)],
+        KEYWORDS: [MessageHandler(filters.TEXT & (~filters.COMMAND), keywords_chosen)],
+    },
+    fallbacks=[],
+)
 
 # --- Автоматический сбор новостей каждый час ---
 async def scheduled_news_job(context):
@@ -237,6 +248,7 @@ def main():
     app.add_handler(CommandHandler("add_category", add_category_cmd))
     app.add_handler(CommandHandler("list_categories", list_categories_cmd))
     app.add_handler(CommandHandler("site", site_cmd))
+    app.add_handler(conv_handler)
     app.post_init = start_news_scheduler
     logger.info("Starting bot polling...")
     app.run_polling()
