@@ -177,7 +177,7 @@ def start_news_scheduler(application):
                         break
     scheduler.add_job(scheduled_news_job, "interval", hours=1)
     scheduler.start()
-    application.scheduler = scheduler
+    application.bot_data["scheduler"] = scheduler
 
 def main():
     app = Application.builder().token(TOKEN).build()
