@@ -4,7 +4,7 @@ import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, ContextTypes, ConversationHandler,
-    CallbackQueryHandler, MessageHandler, filters
+   , MessageHandler, filters
 )
 from telegram_bot_calendar import DetailedTelegramCalendar
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -200,24 +200,7 @@ def filter_news(start_date, end_date, keywords):
             continue
     return result
 
-conv_handler = ConversationHandler(
-    entry_points=[CommandHandler("news", news_cmd)],
-    states={
-        PERIOD: [
-            CallbackQueryHandler(period_chosen),
-        ],
-        CALENDAR_START: [
-            CallbackQueryHandler(calendar_start, per_message=True)
-        ],
-        CALENDAR_END: [
-            CallbackQueryHandler(calendar_end, per_message=True)
-        ],
-        KEYWORDS: [
-            MessageHandler(filters.TEXT & (~filters.COMMAND), keywords_chosen)
-        ],
-    },
-    fallbacks=[],
-)
+
 
 # --- Автоматический сбор новостей каждый час ---
 async def scheduled_news_job(context):
