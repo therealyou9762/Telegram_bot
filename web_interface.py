@@ -8,6 +8,11 @@ def index():
     # Display main settings and stats
     return render_template('index.html')
 
+@app.route('/auth/telegram')
+def auth_telegram():
+    # Реализация авторизации через Telegram
+    return "Telegram auth page"
+
 @app.route('/sources', methods=['GET', 'POST'])
 def manage_sources():
     user_id = 1  # Replace with actual user/session logic as needed
