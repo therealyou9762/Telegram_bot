@@ -1,13 +1,12 @@
 import os
 import logging
 import datetime
-from telegram import (
-    Update, InlineKeyboardButton, InlineKeyboardMarkup
-)
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, ContextTypes, ConversationHandler,
     CallbackQueryHandler, MessageHandler, filters
 )
+from telegram_bot_calendar import DetailedTelegramCalendar
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import feedparser
 
@@ -28,7 +27,7 @@ NEWS_SOURCES = [
     # Добавь другие при необходимости
 ]
 
-PERIOD, KEYWORDS = range(2)
+PERIOD, CALENDAR_START, CALENDAR_END, KEYWORDS = range(4)
 
 # --- Команды ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -108,13 +107,13 @@ async def site_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-# --- Диалог поиска новостей ---
+# --- Диалог поиска новостей только через календарь ---
 async def news_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("Сегодня", callback_data="today")],
         [InlineKeyboardButton("Последние 3 дня", callback_data="3days")],
         [InlineKeyboardButton("Неделя", callback_data="week")],
-        [InlineKeyboardButton("Указать диапазон", callback_data="custom")],
+        [InlineKeyboardButton("Выбрать диапазон на календаре", callback_data="calendar")],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Выберите период для поиска новостей:", reply_markup=reply_markup)
@@ -125,25 +124,34 @@ async def period_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     context.user_data['period'] = query.data
 
-    if query.data == "custom":
-        await query.edit_message_text("Введите диапазон дат в формате ГГГГ-ММ-ДД - ГГГГ-ММ-ДД (например, 2025-09-10 - 2025-09-17):")
-        return PERIOD
+    if query.data == "calendar":
+        calendar, step = DetailedTelegramCalendar(min_date=datetime.date(2020,1,1)).build()
+        await query.edit_message_text("Выберите начальную дату:", reply_markup=calendar)
+        return CALENDAR_START
     else:
         await query.edit_message_text("Введите ключевые слова для поиска (через запятую):")
         return KEYWORDS
 
-async def custom_period(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-    try:
-        start_str, end_str = map(str.strip, text.split('-'))
-        start_date = datetime.datetime.strptime(start_str, "%Y-%m-%d").date()
-        end_date = datetime.datetime.strptime(end_str, "%Y-%m-%d").date()
-        context.user_data['custom_range'] = (start_date, end_date)
-        await update.message.reply_text("Введите ключевые слова для поиска (через запятую):")
+async def calendar_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result, key, step = DetailedTelegramCalendar().process(update.callback_query.data)
+    if not result and key:
+        await update.callback_query.edit_message_text("Выберите начальную дату:", reply_markup=key)
+        return CALENDAR_START
+    elif result:
+        context.user_data['start_date'] = result
+        calendar, step = DetailedTelegramCalendar().build()
+        await update.callback_query.edit_message_text("Выберите конечную дату:", reply_markup=calendar)
+        return CALENDAR_END
+
+async def calendar_end(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result, key, step = DetailedTelegramCalendar().process(update.callback_query.data)
+    if not result and key:
+        await update.callback_query.edit_message_text("Выберите конечную дату:", reply_markup=key)
+        return CALENDAR_END
+    elif result:
+        context.user_data['end_date'] = result
+        await update.callback_query.edit_message_text("Введите ключевые слова для поиска (через запятую):")
         return KEYWORDS
-    except Exception:
-        await update.message.reply_text("Ошибка! Введите диапазон дат корректно (например, 2025-09-10 - 2025-09-17):")
-        return PERIOD
 
 async def keywords_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
@@ -151,16 +159,25 @@ async def keywords_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['keywords'] = keywords
 
     period = context.user_data.get('period')
-    custom_range = context.user_data.get('custom_range')
+    start_date = context.user_data.get('start_date')
+    end_date = context.user_data.get('end_date')
 
-    start_date, end_date = get_period_dates(period, custom_range)
+    if period == "today":
+        start_date = end_date = datetime.datetime.utcnow().date()
+    elif period == "3days":
+        end_date = datetime.datetime.utcnow().date()
+        start_date = end_date - datetime.timedelta(days=2)
+    elif period == "week":
+        end_date = datetime.datetime.utcnow().date()
+        start_date = end_date - datetime.timedelta(days=6)
+
     news_items = filter_news(start_date, end_date, keywords)
 
     if not news_items:
         await update.message.reply_text("📰 Новости не найдены по этим параметрам.")
         return ConversationHandler.END
 
-    for item in news_items[:10]:  # выводим максимум 10 новостей
+    for item in news_items[:10]:
         msg = (
             f"<b>{item['title']}</b>\n{item.get('description','')}\n"
             f"<a href=\"{item['url']}\">Читать подробнее</a>\n"
@@ -170,23 +187,9 @@ async def keywords_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg, parse_mode="HTML")
     return ConversationHandler.END
 
-def get_period_dates(period, custom_range=None):
-    today = datetime.datetime.utcnow().date()
-    if period == "today":
-        return today, today
-    elif period == "3days":
-        return today - datetime.timedelta(days=2), today
-    elif period == "week":
-        return today - datetime.timedelta(days=6), today
-    elif period == "custom" and custom_range:
-        return custom_range
-    else:
-        return today, today
-
 def filter_news(start_date, end_date, keywords):
-    # Здесь берем все новости из БД (или любого источника)
     result = []
-    for news in get_news():  # get_news должен возвращать список словарей новостей
+    for news in get_news():
         try:
             pub_dt = news.get('published_at', '')
             if isinstance(pub_dt, str):
@@ -202,7 +205,12 @@ conv_handler = ConversationHandler(
     states={
         PERIOD: [
             CallbackQueryHandler(period_chosen),
-            MessageHandler(filters.TEXT & (~filters.COMMAND), custom_period)
+        ],
+        CALENDAR_START: [
+            CallbackQueryHandler(calendar_start, per_message=True)
+        ],
+        CALENDAR_END: [
+            CallbackQueryHandler(calendar_end, per_message=True)
         ],
         KEYWORDS: [
             MessageHandler(filters.TEXT & (~filters.COMMAND), keywords_chosen)
