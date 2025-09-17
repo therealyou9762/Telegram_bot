@@ -190,7 +190,7 @@ def main():
     app.add_handler(CommandHandler("list_categories", list_categories_cmd))
     app.add_handler(CommandHandler("news", news_cmd))
     app.add_handler(CommandHandler("site", site_cmd))
-    # Запуск планировщика после старта event loop (исправлено!)
+    # Запуск планировщика после старта event loop!
     app.post_init = lambda app: start_news_scheduler(app)
     logger.info("Starting bot polling...")
     app.run_polling()
