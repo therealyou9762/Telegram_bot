@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 if not TOKEN:
     logger.error("TELEGRAM_BOT_TOKEN не найден в переменных окружения!")
-ф
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     url = f"https://telegr77-6209977497ad.herokuapp.com/?user_id={user_id}"
