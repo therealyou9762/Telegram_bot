@@ -150,38 +150,33 @@ async def site_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # --- Автоматический сбор новостей каждый час ---
+async def scheduled_news_job(context):
+    kw_list = [kw['word'] for kw in get_keywords()]
+    all_news = search_news(kw_list)
+    for src in NEWS_SOURCES:
+        feed = feedparser.parse(src)
+        for entry in feed.entries:
+            for kw in kw_list:
+                if kw.lower() in (entry.title + entry.get('summary', '')).lower():
+                    news_item = {
+                        "title": entry.title,
+                        "url": entry.link,
+                        "description": entry.get("summary", ""),
+                        "category": entry.get("category", "Без категории"),
+                        "published_at": entry.get("published", ""),
+                    }
+                    add_news(
+                        news_item['title'],
+                        news_item['url'],
+                        news_item.get('description', ''),
+                        news_item.get('category', 'Без категории'),
+                        news_item['published_at']
+                    )
+                    break
+
 async def start_news_scheduler(application):
-    from apscheduler.schedulers.asyncio import AsyncIOScheduler
-    import asyncio
-
-    scheduler = AsyncIOScheduler(event_loop=asyncio.get_running_loop())
-
-    async def scheduled_news_job():
-        kw_list = [kw['word'] for kw in get_keywords()]
-        all_news = search_news(kw_list)
-        for src in NEWS_SOURCES:
-            feed = feedparser.parse(src)
-            for entry in feed.entries:
-                for kw in kw_list:
-                    if kw.lower() in (entry.title + entry.get('summary', '')).lower():
-                        news_item = {
-                            "title": entry.title,
-                            "url": entry.link,
-                            "description": entry.get("summary", ""),
-                            "category": entry.get("category", "Без категории"),
-                            "published_at": entry.get("published", ""),
-                        }
-                        add_news(
-                            news_item['title'],
-                            news_item['url'],
-                            news_item.get('description', ''),
-                            news_item.get('category', 'Без категории'),
-                            news_item['published_at']
-                        )
-                        break
-    scheduler.add_job(scheduled_news_job, "interval", hours=1)
-    scheduler.start()
-    application.bot_data["scheduler"] = scheduler
+    # Запланировать задачу раз в час через job_queue (асинхронно)
+    application.job_queue.run_repeating(scheduled_news_job, interval=3600, first=0)
 
 def main():
     app = Application.builder().token(TOKEN).build()
@@ -193,7 +188,7 @@ def main():
     app.add_handler(CommandHandler("news", news_cmd))
     app.add_handler(CommandHandler("site", site_cmd))
     # асинхронный post_init!
-    app.post_init = start_news_scheduler
+ app.post_init = start_news_scheduler
     logger.info("Starting bot polling...")
     app.run_polling()
 
