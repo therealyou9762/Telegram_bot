@@ -6,7 +6,7 @@ from telegram.ext import (
     Application, CommandHandler, ContextTypes, ConversationHandler,
     CallbackQueryHandler, MessageHandler, filters
 )
-from telegram_bot_calendar import DetailedTelegramCalendar
+from python-telegram-bot-calendar import DetailedTelegramCalendar
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import feedparser
 
