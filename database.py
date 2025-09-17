@@ -5,6 +5,37 @@ from psycopg2.extras import RealDictCursor
 def get_db_connection():
     return psycopg2.connect(os.environ['DATABASE_URL'], cursor_factory=RealDictCursor)
 
+def init_db():
+    """Initialize database if needed"""
+    pass
+
+# --- User functions ---
+def get_user(user_id):
+    """Get user by user_id"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM users WHERE user_id = %s", (user_id,))
+            return cur.fetchone()
+
+def update_user(user_id, field, value):
+    """Update user field"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(f"UPDATE users SET {field} = %s WHERE user_id = %s", (value, user_id))
+
+def get_user_stats(user_id, days=7):
+    """Get user statistics for the last N days"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT DATE(published_at) as date, COUNT(*) as total
+                FROM news
+                WHERE published_at >= NOW() - INTERVAL '%s days'
+                GROUP BY DATE(published_at)
+                ORDER BY date
+            """, (days,))
+            return cur.fetchall()
+
 # --- Категории ---
 def add_category(name):
     with get_db_connection() as conn:

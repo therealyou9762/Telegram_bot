@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 from database import get_user, update_user, get_user_stats, init_db
 from config import Config
 from rq import Queue
@@ -18,7 +18,8 @@ init_db()
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    user_id = request.args.get('user_id')
+    return render_template('index.html', user_id=user_id)
 
 
 @app.route('/settings/<int:user_id>')
@@ -28,6 +29,14 @@ def settings(user_id):
         return "User not found", 404
 
     return render_template('settings.html', user=user)
+
+
+@app.route('/settings')
+def settings_redirect():
+    user_id = request.args.get('user_id')
+    if user_id:
+        return redirect(url_for('settings', user_id=user_id))
+    return render_template('settings.html', user=None)
 
 
 @app.route('/api/update_setting/<int:user_id>', methods=['POST'])
@@ -50,6 +59,14 @@ def update_setting(user_id):
 def stats(user_id):
     stats_data = get_user_stats(user_id, 7)
     return render_template('stats.html', stats_data=stats_data, user_id=user_id)
+
+
+@app.route('/stats')
+def stats_redirect():
+    user_id = request.args.get('user_id')
+    if user_id:
+        return redirect(url_for('stats', user_id=user_id))
+    return render_template('stats.html', stats_data=[], user_id=None)
 
 
 @app.route('/api/stats/<int:user_id>')

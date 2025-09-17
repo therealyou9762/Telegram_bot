@@ -1,13 +1,9 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Главная страница</title>
-</head>
-<body>
-    <h1>Добро пожаловать в Telegram Bot Dashboard!</h1>
-    <ul>
-        <li><a href="{{ url_for('manage_sources') }}">Мои источники новостей</a></li>
-        <!-- Добавьте другие ссылки на разделы по мере необходимости -->
-    </ul>
-</body>
-</html>
+{% extends "base.html" %}
+{% block content %}
+<h1>Добро пожаловать!</h1>
+<p>Это главная страница вашего сайта.</p>
+<ul>
+    <li><a href="{{ url_for('manage_sources') }}">Мои источники новостей</a></li>
+    <!-- Добавьте другие ссылки на разделы по мере необходимости -->
+</ul>
+{% endblock %}

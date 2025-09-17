@@ -33,9 +33,9 @@
 <body>
     <nav>
         <a href="{{ url_for('index') }}">Главная</a>
-        <a href="{{ url_for('stats') }}">Статистика</a>
-        <a href="{{ url_for('settings') }}">Настройки</a>
-        <a href="https://t.me/@military_news_23bot" target="_blank" class="tg-link">Открыть Telegram-бота</a>
+        <a href="{{ url_for('stats_redirect') }}">Статистика</a>
+        <a href="{{ url_for('settings_redirect') }}">Настройки</a>
+        <a href="https://t.me/military_news_23bot" target="_blank" class="tg-link">Открыть Telegram-бота</a>
     </nav>
     <main>
         {% block content %}{% endblock %}
