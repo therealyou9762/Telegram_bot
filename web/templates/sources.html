@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Источники новостей</title>
+</head>
+<body>
+    <h1>Ваши источники новостей</h1>
+    <form method="post" action="{{ url_for('manage_sources') }}">
+        <input type="text" name="source_url" placeholder="Добавить новый источник" required />
+        <button type="submit">Добавить</button>
+    </form>
+    <ul>
+        {% for source in sources %}
+            <li>{{ source }}</li>
+        {% else %}
+            <li>Нет добавленных источников</li>
+        {% endfor %}
+    </ul>
+    <a href="{{ url_for('index') }}">На главную</a>
+</body>
+</html>
