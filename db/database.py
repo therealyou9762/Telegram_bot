@@ -109,3 +109,7 @@ def get_news_stats(user_id=None, days=7):
             'date': s.date
         } for s in stats
     ]
+
+def init_db():
+    from db.models import db
+    db.create_all()
