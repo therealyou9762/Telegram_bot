@@ -1,7 +1,7 @@
 import os
 import logging
 from flask import Flask, render_template, request, jsonify
-from database import get_user, update_user, get_user_stats, init_db
+from db.database import get_user, update_user, get_user_stats, init_db
 from config import Config
 
 logging.basicConfig(level=logging.INFO)
