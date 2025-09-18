@@ -1,6 +1,7 @@
 from db.models import db, Keyword, Category, News, NewsStat, User  # добавьте User сюда!
 from sqlalchemy import func
 import datetime
+from db.database import init_db
 
 # --- Пользователи ---
 def get_user(user_id):
