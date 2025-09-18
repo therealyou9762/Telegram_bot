@@ -162,7 +162,7 @@ async def keywords_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     start_date = context.user_data.get('start_date')
     end_date = context.user_data.get('end_date')
 
-    today = datetime.datetime.utcnow().date()
+    today = datetime.datetime.now(datetime.UTC).date()
     if period == "today":
         start_date = end_date = today
     elif period == "3days":
@@ -173,7 +173,7 @@ async def keywords_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
         start_date = end_date - datetime.timedelta(days=6)
     # Для календаря start_date, end_date уже заданы
 
-    news_items = get_news()  # Получаем все новости
+    news_items = get_news()
     filtered_news = filter_news(start_date, end_date, keywords, news_items)
 
     if not filtered_news:
