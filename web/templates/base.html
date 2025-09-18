@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Telegram Bot Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+    <style>
+        nav {
+            margin-bottom: 20px;
+        }
+        .tg-link { margin-left: 10px; }
+    </style>
+</head>
+<body>
+<nav>
+    <a href="{{ url_for('index') }}">Главная</a>
+    {% if user_id %}
+        <a href="{{ url_for('stats', user_id=user_id) }}">Статистика</a>
+        <a href="{{ url_for('settings', user_id=user_id) }}">Настройки</a>
+    {% endif %}
+    <a href="https://t.me/@military_news_23bot" target="_blank" class="tg-link">Открыть Telegram-бота</a>
+</nav>
+<div class="container">
+    {% block content %}{% endblock %}
+</div>
+</body>
+</html>

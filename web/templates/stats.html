@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Статистика{% endblock %}
+{% block content %}
+<h2>Статистика пользователя</h2>
+{% if stats_data %}
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Дата</th>
+                <th>Действие</th>
+                <th>Количество</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for row in stats_data %}
+            <tr>
+                <td>{{ row['date'] }}</td>
+                <td>{{ row['action'] }}</td>
+                <td>{{ row['count'] }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <p>Нет данных для отображения.</p>
+{% endif %}
+{% endblock %}
