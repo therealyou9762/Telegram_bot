@@ -1,14 +1,12 @@
-from db.models import db, Keyword, Category, News, NewsStat, User  # добавьте User сюда!
+from db.models import db, Keyword, Category, News, NewsStat, User
 from sqlalchemy import func
 import datetime
 
 # --- Пользователи ---
 def get_user(user_id):
-    """Получить пользователя по id"""
     return User.query.get(user_id)
 
 def update_user(user_id, **kwargs):
-    """Обновить поля пользователя (например, username, email)"""
     user = User.query.get(user_id)
     if not user:
         return None
@@ -19,7 +17,6 @@ def update_user(user_id, **kwargs):
     return user
 
 def get_user_stats(user_id):
-    """Получить статистику пользователя из NewsStat"""
     stats = NewsStat.query.filter_by(user_id=user_id).all()
     return [
         {
@@ -30,10 +27,6 @@ def get_user_stats(user_id):
         }
         for s in stats
     ]
-
-def init_db():
-    """Инициализация базы данных"""
-    db.create_all()
 
 # --- Категории ---
 def add_category(name):
@@ -109,7 +102,3 @@ def get_news_stats(user_id=None, days=7):
             'date': s.date
         } for s in stats
     ]
-
-def init_db():
-    from db.models import db
-    db.create_all()
