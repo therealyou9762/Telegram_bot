@@ -8,6 +8,7 @@ from telegram.ext import (
 from telegram_bot_calendar import DetailedTelegramCalendar
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import feedparser
+from filter_news import filter_news
 
 from database import add_keyword, get_keywords, add_category, get_categories, add_news, get_news
 from newsapi import search_news
