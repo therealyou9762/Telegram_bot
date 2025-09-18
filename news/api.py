@@ -5,6 +5,7 @@ import hashlib
 import json
 
 WEBZ_API_KEY = os.getenv("WEBZ_API_KEY")
+NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
 REDIS_URL = os.getenv("REDIS_URL")
 
 redis_client = redis.Redis.from_url(REDIS_URL) if REDIS_URL else None
@@ -25,6 +26,7 @@ def set_cached_news(query, news, cache_time=600):
     redis_client.setex(key, cache_time, json.dumps(news))
 
 def fetch_news(query: str, language: str = "en", page: int = 1):
+    """Fetch news using Webz.io API"""
     if not WEBZ_API_KEY:
         raise ValueError("WEBZ_API_KEY not set in environment")
 
@@ -51,3 +53,32 @@ def fetch_news(query: str, language: str = "en", page: int = 1):
         # log the error (implement your logging here)
         print(f"Error fetching news: {e}")
         return []
+
+def search_news(keywords, language='ru', limit=5):
+    """Search news using TheNewsAPI"""
+    if not NEWS_API_KEY:
+        raise Exception("TheNewsAPI ключ не найден.")
+    if isinstance(keywords, list):
+        keywords = " ".join(keywords)
+    url = (
+        f"https://api.thenewsapi.com/v1/news/all"
+        f"?api_token={NEWS_API_KEY}"
+        f"&language={language}"
+        f"&search={keywords}"
+        f"&limit={limit}"
+    )
+    resp = requests.get(url, timeout=20)
+    if resp.status_code != 200:
+        raise Exception(f"TheNewsAPI error: {resp.text}")
+    data = resp.json()
+    articles = data.get("data", [])
+    return [
+        {
+            "title": a.get("title"),
+            "url": a.get("url"),
+            "published_at": a.get("published_at"),
+            "description": a.get("description"),
+            "source": a.get("source"),
+        }
+        for a in articles
+    ]

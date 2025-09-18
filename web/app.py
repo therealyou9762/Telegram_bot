@@ -1,14 +1,13 @@
 import os
 import logging
 from flask import Flask, render_template, request, jsonify
-from database import get_user, update_user, get_user_stats, init_db
-from config import Config
+from ..db.database import get_user, update_user, get_user_stats, init_db
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.config.from_object(Config)
+# app.config.from_object(Config)  # Commented out since Config was removed
 
 try:
     init_db()
@@ -17,8 +16,12 @@ except Exception as e:
 
 @app.route('/api/news_stats/<int:user_id>')
 def api_news_stats(user_id):
-    stats = get_news_stats(user_id)
-    return jsonify([dict(row) for row in stats])
+    try:
+        stats = get_user_stats(user_id, 7)  # Fixed function call
+        return jsonify([dict(row) for row in stats])
+    except Exception as e:
+        logger.error(e)
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/')
 def index():
@@ -27,10 +30,10 @@ def index():
         user_id = int(user_id)
     except (TypeError, ValueError):
         return "User invalid"
-    user = User.query.filter_by(user_id=user_id).first()
+    user = get_user(user_id)  # Fixed to use get_user function
     if not user:
         return "User invalid"
-    # Дальше логика работы с пользователем...
+    return render_template('index.html', user=user)
 
 @app.route('/settings/<int:user_id>')
 def settings(user_id):

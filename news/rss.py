@@ -1,5 +1,5 @@
 import feedparser
-from database import add_news, add_news_stat, get_keywords
+from ..db.database import add_news, add_news_stat, get_keywords
 
 NEWS_SOURCES = [
     # Великобритания

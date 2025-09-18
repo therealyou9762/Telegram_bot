@@ -7,10 +7,12 @@ from telegram.ext import (
 )
 from telegram_bot_calendar import DetailedTelegramCalendar
 import feedparser
-from filter_news import filter_news
 
-from database import add_keyword, get_keywords, add_category, get_categories, add_news, get_news
-from newsapi import search_news
+# Import from new modular structure
+from news.filter import filter_news
+from news.postprocessing import format_news_item_for_display
+from news.api import search_news
+from db.database import add_keyword, get_keywords, add_category, get_categories, add_news, get_news
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -49,68 +51,70 @@ NEWS_SOURCES = [
     "https://e00-elmundo.uecdn.es/elmundo/rss/internacional.xml",
 
     # Польша
-    "https://www.tvn24.pl/najnowsze.xml",
-    "https://wiadomosci.onet.pl/rss.xml",
-    "https://wyborcza.pl/pub/rss/wyborcza.xml",
-    "https://notesfrompoland.com/feed/",
+    "https://tvn24.pl/rss",
+    "https://www.rp.pl/rss_main",
+    "https://wiadomosci.onet.pl/rss",
+    "https://www.polskieradio.pl/5/3/Rss",
+    "https://www.rmf24.pl/rss",
+    "https://www.radio.krakow.pl/rss.xml",
+
+    # Венгрия
+    "https://telex.hu/feed",
+    "https://index.hu/24ora/rss",
 
     # Нидерланды
-    "https://nltimes.nl/rss",
     "https://www.dutchnews.nl/feed/",
+    "https://nos.nl/rss/alles.xml",
 
     # Бельгия
-    "https://www.brusselstimes.com/feed/",
-    "https://www.lesoir.be/rss/lesoir.xml",
+    "https://www.hln.be/rss.xml",
+    "https://www.standaard.be/rss",
+    "https://www.lesoir.be/feed/",
+    "https://www.lalibre.be/rss",
 
     # Португалия
-    "https://expresso.pt/rss/ultimas",
     "https://www.publico.pt/rss",
+    "https://expresso.pt/rss",
+    "https://observador.pt/rss",
 
     # Чехия
     "https://www.seznamzpravy.cz/rss",
-    "https://denikn.cz/feed/",
+    "https://denikn.cz/rss/",
+    "https://zpravy.idnes.cz/rss.aspx",
 
     # Словакия
-    "https://dennikn.sk/feed/",
-    "https://www.sme.sk/rss/sekcie/2/index.xml",
+    "https://dennikn.sk/rss/",
+    "https://www.sme.sk/rss",
 
     # Финляндия
-    "https://www.hs.fi/rss/english.xml",
-    "https://yle.fi/uutiset/osasto/news/rss.xml",
+    "https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_UUTISET",
+    "https://www.hs.fi/rss/tuoreimmat.xml",
 
     # Швеция
-    "https://www.svt.se/rss.xml",
-    "https://www.dn.se/rss/",
+    "https://api.sr.se/api/rss/program/83?format=145",
+    "https://www.svt.se/nyheter/rss.xml",
 
     # Дания
-    "https://www.tv2.dk/rss",
-    "https://politiken.dk/rss",
+    "https://www.dr.dk/nyheder/service/feeds/allenyheder",
 
     # Норвегия
     "https://www.nrk.no/toppsaker.rss",
-    "https://www.aftenposten.no/rss",
+    "https://www.vg.no/rss/create.php?categories=1068,1069,1078",
 
     # Ирландия
-    "https://www.irishtimes.com/international/rss",
-
-    # Австрия
-    "https://www.derstandard.at/rss",
-    "https://www.diepresse.com/rss",
-
-    # Швейцария
-    "https://www.nzz.ch/rss",
-    "https://www.letemps.ch/rss",
+    "https://www.rte.ie/news/rss/",
+    "https://www.thejournal.ie/feed/",
 
     # Болгария
-    "https://www.dnevnik.bg/rss/",
-    "https://www.segabg.com/rss.xml",
+    "https://nova.bg/rss",
+    "https://www.dnes.bg/rss.php",
 
     # Румыния
-    "https://www.gandul.ro/rss",
     "https://www.digi24.ro/rss",
+    "https://www.hotnews.ro/rss",
 
     # Греция
-    "https://www.kathimerini.gr/feed/",
+    "https://www.in.gr/rss/",
     "https://www.protothema.gr/rss/news-international.xml",
 
     # Литва, Латвия, Эстония (Балтия)
@@ -186,9 +190,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📋 <b>/list_keywords</b> — список ваших ключевых слов\n"
         "📂 <b>/add_category</b> категория — добавить новую категорию\n"
         "🗂️ <b>/list_categories</b> — список ваших категорий\n"
-        "📰 <b>/news</b> — показать новости по ключевым словам\n"
-        "🌐 <b>/site</b> — открыть сайт управления новостями\n\n"
-        "Для удобного управления новостями воспользуйтесь кнопкой ниже.",
+        "📰 <b>/news</b> — поиск новостей\n"
+        "🌐 <b>/site</b> — ссылка на веб-интерфейс",
         reply_markup=reply_markup,
         parse_mode='HTML'
     )
@@ -326,12 +329,7 @@ async def keywords_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
 
     for item in filtered_news[:10]:
-        msg = (
-            f"<b>{item['title']}</b>\n{item.get('description','')}\n"
-            f"<a href=\"{item['url']}\">Читать подробнее</a>\n"
-            f"Категория: {item.get('category', 'Без категории')}\n"
-            f"Дата: {item.get('published_at','')}\n"
-        )
+        msg = format_news_item_for_display(item)
         await update.message.reply_text(msg, parse_mode="HTML")
     return ConversationHandler.END
 

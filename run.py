@@ -1,6 +1,6 @@
 import threading
 from web.app import app as flask_app
-from bot.bot import main as bot_main
+from bot.telegram_bot import main as bot_main
 
 def start_web():
     flask_app.run(host="0.0.0.0", port=5000)

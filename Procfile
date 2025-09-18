@@ -1,3 +1,3 @@
-web: python openai_summary.py
-worker: python worker.py
-bot: python openai_summary.py
+web: python -m bot.telegram_bot
+worker: python -m utils.worker
+bot: python -m bot.telegram_bot

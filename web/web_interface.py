@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for
-from database import get_db_connection  # Use your Postgres connection
+from ..db.database import get_db_connection  # Use your Postgres connection
 
 app = Flask(__name__)
 

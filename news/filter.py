@@ -1,5 +1,5 @@
-from news_domains import EU_NEWS_DOMAINS
-from translate_utils import translate_keywords
+from .domains import EU_NEWS_DOMAINS
+from .translation import translate_keywords
 from datetime import datetime
 
 def filter_news(start_date, end_date, keywords, news_items):
