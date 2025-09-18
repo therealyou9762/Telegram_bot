@@ -1,12 +1,7 @@
 import os
 import logging
 from flask import Flask, render_template, request, jsonify
-from db.database import (
-    add_category, get_categories,
-    add_keyword, get_keywords,
-    add_news, get_news,
-    add_news_stat, get_news_stats
-)
+from db.database import init_db
 from config import Config
 
 logging.basicConfig(level=logging.INFO)
