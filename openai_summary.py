@@ -173,13 +173,14 @@ async def keywords_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
         start_date = end_date - datetime.timedelta(days=6)
     # Для календаря start_date, end_date уже заданы
 
-    news_items = filter_news(start_date, end_date, keywords)
+    news_items = get_news()  # Получаем все новости
+    filtered_news = filter_news(start_date, end_date, keywords, news_items)
 
-    if not news_items:
+    if not filtered_news:
         await update.message.reply_text("📰 Новости не найдены по этим параметрам.")
         return ConversationHandler.END
 
-    for item in news_items[:10]:
+    for item in filtered_news[:10]:
         msg = (
             f"<b>{item['title']}</b>\n{item.get('description','')}\n"
             f"<a href=\"{item['url']}\">Читать подробнее</a>\n"
