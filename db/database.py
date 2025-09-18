@@ -1,106 +1,78 @@
-import os
-import psycopg2
-from psycopg2.extras import RealDictCursor
-
-def get_db_connection():
-    return psycopg2.connect(os.environ['DATABASE_URL'], cursor_factory=RealDictCursor)
-
-def add_news_stat(user_id, keyword, source, found_count, date):
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                INSERT INTO news_stats (user_id, keyword, source, found_count, date)
-                VALUES (%s, %s, %s, %s, %s)
-            """, (user_id, keyword, source, found_count, date))
-
-def get_news_stats(user_id=None, days=7):
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            if user_id:
-                cur.execute("""
-                    SELECT keyword, source, SUM(found_count) AS total, date
-                    FROM news_stats
-                    WHERE user_id = %s AND date > (now() - interval '%s days')
-                    GROUP BY keyword, source, date
-                    ORDER BY date DESC
-                """, (user_id, days))
-            else:
-                cur.execute("""
-                    SELECT keyword, source, SUM(found_count) AS total, date
-                    FROM news_stats
-                    WHERE date > (now() - interval '%s days')
-                    GROUP BY keyword, source, date
-                    ORDER BY date DESC
-                """, (days,))
-            return cur.fetchall()
+from db.models import db, Keyword, Category, News, NewsStat
+from sqlalchemy import func
+import datetime
 
 # --- Категории ---
 def add_category(name):
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("INSERT INTO categories (name) VALUES (%s) ON CONFLICT (name) DO NOTHING RETURNING id", (name,))
-            result = cur.fetchone()
-            return result['id'] if result else None
+    category = Category.query.filter_by(name=name).first()
+    if not category:
+        category = Category(name=name)
+        db.session.add(category)
+        db.session.commit()
+    return category.id
 
 def get_categories():
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT * FROM categories")
-            return cur.fetchall()
+    return [{'id': cat.id, 'name': cat.name} for cat in Category.query.order_by(Category.name.asc()).all()]
 
 # --- Ключевые слова ---
 def add_keyword(word, category_name):
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            # Найти или создать категорию
-            cur.execute("SELECT id FROM categories WHERE name=%s", (category_name,))
-            cat = cur.fetchone()
-            if not cat:
-                cur.execute("INSERT INTO categories (name) VALUES (%s) RETURNING id", (category_name,))
-                cat = cur.fetchone()
-            cat_id = cat['id']
-            cur.execute("INSERT INTO keywords (word, category_id) VALUES (%s, %s) RETURNING id", (word, cat_id))
-            return cur.fetchone()['id']
+    category_id = add_category(category_name)
+    kw = Keyword(word=word, category_id=category_id)
+    db.session.add(kw)
+    db.session.commit()
+    return kw.id
 
 def get_keywords():
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT k.word, c.name AS category 
-                FROM keywords k LEFT JOIN categories c ON k.category_id = c.id
-            """)
-            return cur.fetchall()
+    return [
+        {'word': kw.word, 'category': kw.category.name}
+        for kw in Keyword.query.join(Category).order_by(Keyword.word.asc()).all()
+    ]
 
 # --- Новости ---
 def add_news(title, url, summary, category_name, published_at):
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            # Найти или создать категорию
-            cur.execute("SELECT id FROM categories WHERE name=%s", (category_name,))
-            cat = cur.fetchone()
-            if not cat:
-                cur.execute("INSERT INTO categories (name) VALUES (%s) RETURNING id", (category_name,))
-                cat = cur.fetchone()
-            cat_id = cat['id']
-            cur.execute("""
-                INSERT INTO news (title, url, summary, category_id, published_at) 
-                VALUES (%s, %s, %s, %s, %s)
-            """, (title, url, summary, cat_id, published_at))
+    category_id = add_category(category_name)
+    news = News(title=title, url=url, summary=summary, category_id=category_id, published_at=published_at)
+    db.session.add(news)
+    db.session.commit()
 
 def get_news(category_name=None):
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            if category_name:
-                cur.execute("""
-                    SELECT n.title, n.url, n.summary, n.published_at, c.name AS category
-                    FROM news n LEFT JOIN categories c ON n.category_id = c.id
-                    WHERE c.name = %s
-                    ORDER BY n.published_at DESC
-                """, (category_name,))
-            else:
-                cur.execute("""
-                    SELECT n.title, n.url, n.summary, n.published_at, c.name AS category
-                    FROM news n LEFT JOIN categories c ON n.category_id = c.id
-                    ORDER BY n.published_at DESC
-                """)
-            return cur.fetchall()
+    query = News.query.join(Category)
+    if category_name:
+        query = query.filter(Category.name == category_name)
+    return [
+        {
+            'title': n.title,
+            'url': n.url,
+            'summary': n.summary,
+            'category': n.category.name if n.category else None,
+            'published_at': n.published_at,
+        }
+        for n in query.order_by(News.published_at.desc()).all()
+    ]
+
+# --- Статистика новостей ---
+def add_news_stat(user_id, keyword, source, found_count, date):
+    stat = NewsStat(user_id=user_id, keyword=keyword, source=source, found_count=found_count, date=date)
+    db.session.add(stat)
+    db.session.commit()
+
+def get_news_stats(user_id=None, days=7):
+    query = NewsStat.query
+    if user_id:
+        query = query.filter(NewsStat.user_id == user_id)
+    date_limit = datetime.datetime.utcnow() - datetime.timedelta(days=days)
+    query = query.filter(NewsStat.date > date_limit)
+    stats = query.with_entities(
+        NewsStat.keyword,
+        NewsStat.source,
+        func.sum(NewsStat.found_count).label('total'),
+        NewsStat.date
+    ).group_by(NewsStat.keyword, NewsStat.source, NewsStat.date).order_by(NewsStat.date.desc())
+    return [
+        {
+            'keyword': s.keyword,
+            'source': s.source,
+            'total': s.total,
+            'date': s.date
+        } for s in stats
+    ]
