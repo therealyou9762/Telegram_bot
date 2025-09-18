@@ -1,7 +1,14 @@
 from flask import Flask, render_template, request, redirect, url_for
-from ..db.database import get_db_connection  # Use your Postgres connection
 
 app = Flask(__name__)
+
+def get_database_functions():
+    """Lazy import database functions to avoid circular imports"""
+    try:
+        from db.database import get_db_connection
+        return get_db_connection
+    except ImportError:
+        return None
 
 @app.route('/')
 def index():
@@ -15,6 +22,10 @@ def auth_telegram():
 
 @app.route('/sources', methods=['GET', 'POST'])
 def manage_sources():
+    get_db_connection = get_database_functions()
+    if not get_db_connection:
+        return "Database not available", 500
+        
     user_id = 1  # Replace with actual user/session logic as needed
     if request.method == 'POST':
         new_source = request.form['source_url']

@@ -9,10 +9,25 @@ from telegram_bot_calendar import DetailedTelegramCalendar
 import feedparser
 
 # Import from new modular structure
-from news.filter import filter_news
-from news.postprocessing import format_news_item_for_display
-from news.api import search_news
-from db.database import add_keyword, get_keywords, add_category, get_categories, add_news, get_news
+def get_news_functions():
+    """Lazy import news functions to avoid circular imports"""
+    try:
+        from news.filter import filter_news
+        from news.postprocessing import format_news_item_for_display
+        from news.api import search_news
+        return filter_news, format_news_item_for_display, search_news
+    except ImportError:
+        logger.error("Could not import news functions")
+        return None, None, None
+
+def get_database_functions():
+    """Lazy import database functions to avoid circular imports"""
+    try:
+        from db.database import add_keyword, get_keywords, add_category, get_categories, add_news, get_news
+        return add_keyword, get_keywords, add_category, get_categories, add_news, get_news
+    except ImportError:
+        logger.error("Could not import database functions")
+        return None, None, None, None, None, None
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -201,11 +216,21 @@ async def add_keyword_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Использование: /add_keyword <слово> <категория>")
         return
     word, category = context.args[0], " ".join(context.args[1:])
-    add_keyword(word, category)
-    await update.message.reply_text(
-        f"🔑 Ключевое слово <b>{word}</b> добавлено в категорию <b>{category}</b>.", parse_mode='HTML')
+    
+    add_keyword, get_keywords, add_category, get_categories, add_news, get_news = get_database_functions()
+    if add_keyword:
+        add_keyword(word, category)
+        await update.message.reply_text(
+            f"🔑 Ключевое слово <b>{word}</b> добавлено в категорию <b>{category}</b>.", parse_mode='HTML')
+    else:
+        await update.message.reply_text("Ошибка: база данных недоступна")
 
 async def list_keywords_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    add_keyword, get_keywords, add_category, get_categories, add_news, get_news = get_database_functions()
+    if not get_keywords:
+        await update.message.reply_text("Ошибка: база данных недоступна")
+        return
+        
     keywords = get_keywords()
     if not keywords:
         await update.message.reply_text("🔑 Ключевые слова не добавлены.")
@@ -226,10 +251,20 @@ async def add_category_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Использование: /add_category <категория>")
         return
     name = " ".join(context.args)
-    add_category(name)
-    await update.message.reply_text(f"📂 Категория <b>{name}</b> добавлена.", parse_mode='HTML')
+    
+    add_keyword, get_keywords, add_category, get_categories, add_news, get_news = get_database_functions()
+    if add_category:
+        add_category(name)
+        await update.message.reply_text(f"📂 Категория <b>{name}</b> добавлена.", parse_mode='HTML')
+    else:
+        await update.message.reply_text("Ошибка: база данных недоступна")
 
 async def list_categories_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    add_keyword, get_keywords, add_category, get_categories, add_news, get_news = get_database_functions()
+    if not get_categories:
+        await update.message.reply_text("Ошибка: база данных недоступна")
+        return
+        
     categories = get_categories()
     if not categories:
         await update.message.reply_text("🗂️ Категории не добавлены.")
@@ -321,6 +356,13 @@ async def keywords_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
         start_date = end_date - datetime.timedelta(days=6)
     # Для календаря start_date, end_date уже заданы
 
+    add_keyword, get_keywords, add_category, get_categories, add_news, get_news = get_database_functions()
+    filter_news, format_news_item_for_display, search_news = get_news_functions()
+    
+    if not get_news or not filter_news or not format_news_item_for_display:
+        await update.message.reply_text("Ошибка: модули недоступны")
+        return ConversationHandler.END
+
     news_items = get_news()
     filtered_news = filter_news(start_date, end_date, keywords, news_items)
 
@@ -346,6 +388,12 @@ conv_handler = ConversationHandler(
 
 # --- Автоматический сбор новостей каждый час ---
 async def scheduled_news_job(context):
+    add_keyword, get_keywords, add_category, get_categories, add_news, get_news = get_database_functions()
+    filter_news, format_news_item_for_display, search_news = get_news_functions()
+    
+    if not get_keywords or not search_news or not add_news:
+        return
+        
     kw_list = [kw['word'] for kw in get_keywords()]
     all_news = search_news(kw_list)
     for src in NEWS_SOURCES:

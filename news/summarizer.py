@@ -2,18 +2,25 @@
 OpenAI summarization functionality
 """
 import os
-import openai
-from typing import List, Dict
 import logging
+from typing import List, Dict
 
 logger = logging.getLogger(__name__)
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
+# Try to import openai, but handle missing dependency gracefully
+try:
+    import openai
+    HAS_OPENAI = True
+except ImportError:
+    HAS_OPENAI = False
+    logger.warning("OpenAI package not installed, using fallback summarization")
+
 def create_summary(text: str, max_length: int = 150) -> str:
     """Create a summary of the given text using OpenAI"""
-    if not OPENAI_API_KEY:
-        logger.warning("OPENAI_API_KEY not set, returning truncated text")
+    if not OPENAI_API_KEY or not HAS_OPENAI:
+        logger.warning("OPENAI_API_KEY not set or OpenAI not available, returning truncated text")
         return text[:max_length] + "..." if len(text) > max_length else text
     
     # TODO: Implement OpenAI summarization
