@@ -190,19 +190,6 @@ async def keywords_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg, parse_mode="HTML")
     return ConversationHandler.END
 
-def filter_news(start_date, end_date, keywords):
-    result = []
-    for news in get_news():
-        try:
-            pub_dt = news.get('published_at', '')
-            if isinstance(pub_dt, str):
-                pub_dt = datetime.datetime.strptime(pub_dt[:10], "%Y-%m-%d").date()
-            if start_date <= pub_dt <= end_date and any(kw.lower() in (news.get('title','')+news.get('description','')).lower() for kw in keywords):
-                result.append(news)
-        except Exception:
-            continue
-    return result
-
 conv_handler = ConversationHandler(
     entry_points=[CommandHandler("news", news_cmd)],
     states={
