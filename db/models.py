@@ -2,6 +2,13 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    # Добавьте любые другие поля, которые вам нужны, например:
+    # password_hash = db.Column(db.String(128))
+
 class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
@@ -23,7 +30,8 @@ class News(db.Model):
 
 class NewsStat(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user = db.relationship('User', backref=db.backref('news_stats', lazy=True))
     keyword = db.Column(db.String(100), nullable=False)
     source = db.Column(db.String(100), nullable=False)
     found_count = db.Column(db.Integer, nullable=False)
